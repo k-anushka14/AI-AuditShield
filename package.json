@@ -1,0 +1,29 @@
+{
+  "name": "ai-auditshield",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "npm --prefix cool-sdk run build",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --import tsx --test tests/phase1.test.ts tests/api.test.ts"
+  },
+  "dependencies": {
+    "cool-nwc": "file:./cool-sdk",
+    "next": "^15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
