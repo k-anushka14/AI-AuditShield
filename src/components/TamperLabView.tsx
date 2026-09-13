@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { DecisionRecord } from "@/lib/types";
+import { DecisionRecord, TamperResponse, VerificationResponse, VerificationStatus } from "@/lib/types";
 import {
   ShieldAlertIcon,
   ShieldCheckIcon,
@@ -14,12 +14,15 @@ import {
   LockIcon,
 } from "./icons";
 
+type AttackType = "metadata_hash" | "corrupt_signature" | "signature_key";
+
 interface TamperLabViewProps {
   decision: DecisionRecord | null;
+  tamperResult: TamperResponse | null;
+  isSimulating: boolean;
+  onRunTamper: (mutationType?: AttackType) => Promise<TamperResponse | null>;
   onNavigateTab: (tab: "overview" | "investigations" | "evidence" | "verify" | "tamper") => void;
 }
-
-type AttackType = "metadata_hash" | "corrupt_signature" | "signature_key";
 
 interface AttackOption {
   id: AttackType;
@@ -35,7 +38,7 @@ const ATTACK_OPTIONS: AttackOption[] = [
     title: "1. Modify Metadata Commitment",
     shortLabel: "Metadata Commitment Attack",
     description:
-      "Flips the final hex character of event.metadata_hash commitment. Violates cryptographic binding and invalidates post-quantum hybrid signature.",
+      "Flips the final hex character of event.metadata_hash commitment. The verifier should report binding and signature failures.",
     threatScenario:
       "Simulates an adversary attempting to alter the model version, policy ID, or execution timestamp after decision generation.",
   },
@@ -44,9 +47,9 @@ const ATTACK_OPTIONS: AttackOption[] = [
     title: "2. Corrupt Hybrid Signature",
     shortLabel: "Signature Corruption Attack",
     description:
-      "Mutates the raw ML-DSA-65 and Ed25519 signature payload. Fails the post-quantum signature check while leaving binding commitments intact.",
+      "Mutates the raw ML-DSA-65 signature payload. Fails the hybrid signature check while leaving binding commitments intact.",
     threatScenario:
-      "Simulates an attacker attempting to forge an approval signature without holding the enclave-derived measurement-sealed private key.",
+      "Simulates an attacker altering one signature field without access to the signing key. The local runtime is simulated, not hardware-attested.",
   },
   {
     id: "signature_key",
@@ -59,11 +62,8 @@ const ATTACK_OPTIONS: AttackOption[] = [
   },
 ];
 
-export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
+export function TamperLabView({ decision, tamperResult, isSimulating, onRunTamper, onNavigateTab }: TamperLabViewProps) {
   const [selectedAttack, setSelectedAttack] = useState<AttackType>("metadata_hash");
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [tamperResult, setTamperResult] = useState<any | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!decision) {
     return (
@@ -79,37 +79,30 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
     );
   }
 
-  const handleSimulateTamper = async () => {
-    setIsSimulating(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/tamper", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: decision.id,
-          mutationType: selectedAttack,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.details || err.error || "Failed to simulate tampering");
-      }
-
-      const data = await res.json();
-      setTamperResult(data);
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || String(err));
-    } finally {
-      setIsSimulating(false);
-    }
-  };
+  const handleSimulateTamper = () => onRunTamper(selectedAttack);
 
   const origVerdict = tamperResult?.originalVerdict;
   const tampVerdict = tamperResult?.tamperedVerdict;
   const mutationDetails = tamperResult?.mutationDetails;
+
+  const getCheckStatus = (
+    verdict: VerificationResponse | undefined,
+    domain: string
+  ): VerificationStatus | "not_run" => verdict?.checks[domain]?.status || "not_run";
+
+  const renderCheckStatus = (verdict: VerificationResponse | undefined, domain: string) => {
+    const status = getCheckStatus(verdict, domain);
+    if (status === "pass") {
+      return <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]"><CheckIcon className="w-3.5 h-3.5" />PASS</span>;
+    }
+    if (status === "fail") {
+      return <span className="text-rose-400 font-bold inline-flex items-center gap-1 text-[11px]"><XIcon className="w-3.5 h-3.5" />FAIL</span>;
+    }
+    if (status === "simulated") {
+      return <span className="text-amber-400 font-bold text-[11px]">~ SIMULATED</span>;
+    }
+    return <span className="text-slate-500 font-bold text-[11px]">NOT RUN</span>;
+  };
 
   return (
     <div className="space-y-8 animate-fadeIn font-mono">
@@ -203,12 +196,6 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
         </div>
       </div>
 
-      {errorMsg && (
-        <div className="p-4 bg-rose-950/60 border border-rose-800 rounded-lg text-rose-300 text-xs">
-          {errorMsg}
-        </div>
-      )}
-
       {/* Side-by-Side Comparative Verdict Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -228,7 +215,7 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
                 ORIGINAL EVIDENCE
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-800">
-                CLEAN RECORD
+                {origVerdict ? "VERIFIED BY CooL" : "VERIFICATION AVAILABLE"}
               </span>
             </div>
 
@@ -237,10 +224,12 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
               <div className="flex items-center gap-3">
                 <ShieldCheckIcon className="w-5 h-5 text-emerald-400" />
                 <span className="text-lg font-black text-emerald-400 tracking-wider">
-                  RESULT: VERIFIED
+                  {origVerdict ? (origVerdict.ok ? "RESULT: VERIFIED" : "RESULT: FAILED") : "READY FOR INTEGRITY TEST"}
                 </span>
               </div>
-              <span className="text-[10px] text-emerald-400/80">ok: true</span>
+              <span className="text-[10px] text-slate-400">
+                {origVerdict ? `ok: ${origVerdict.ok}` : "Run an attack to verify this receipt"}
+              </span>
             </div>
 
             {/* Domain List (Original) */}
@@ -248,30 +237,27 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
               <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                 <span className="text-slate-300 font-semibold">Binding</span>
                 <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                  <CheckIcon className="w-3.5 h-3.5" />
-                  PASS
+                  {renderCheckStatus(origVerdict, "binding")}
                 </span>
               </div>
 
               <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                 <span className="text-slate-300 font-semibold">Signature</span>
                 <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                  <CheckIcon className="w-3.5 h-3.5" />
-                  PASS
+                  {renderCheckStatus(origVerdict, "signature")}
                 </span>
               </div>
 
               <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                 <span className="text-slate-300 font-semibold">Inclusion</span>
                 <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                  <CheckIcon className="w-3.5 h-3.5" />
-                  PASS
+                  {renderCheckStatus(origVerdict, "inclusion")}
                 </span>
               </div>
 
               <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
                 <span className="text-slate-300 font-semibold">Attestation</span>
-                <span className="text-amber-400 font-bold text-[11px]">~ SIMULATED</span>
+                {renderCheckStatus(origVerdict, "attestation")}
               </div>
             </div>
 
@@ -284,80 +270,34 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
           <div className="rounded-xl border border-rose-900/70 bg-slate-950/80 p-6 space-y-4 shadow-lg shadow-rose-950/20">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">
-                TAMPERED EVIDENCE
+                {tampVerdict ? "TAMPERED EVIDENCE" : "INTEGRITY TEST"}
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/80 text-rose-400 border border-rose-800 animate-pulse">
-                ALTERED RECORD
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-slate-400 border border-slate-700">
+                {tampVerdict ? "ALTERED RECORD" : "READY"}
               </span>
             </div>
 
             {/* Tampered Verdict Banner */}
-            <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-800/80 flex items-center justify-between">
+            <div className={`p-4 rounded-lg border flex items-center justify-between ${tampVerdict ? "bg-rose-950/40 border-rose-800/80" : "bg-slate-900/60 border-slate-800"}`}>
               <div className="flex items-center gap-3">
-                <ShieldAlertIcon className="w-5 h-5 text-rose-400" />
-                <span className="text-lg font-black text-rose-400 tracking-wider">
-                  RESULT: FAILED
+                {tampVerdict ? <ShieldAlertIcon className="w-5 h-5 text-rose-400" /> : <LockIcon className="w-5 h-5 text-slate-400" />}
+                <span className={`text-lg font-black tracking-wider ${tampVerdict ? "text-rose-400" : "text-slate-300"}`}>
+                  {tampVerdict ? (tampVerdict.ok ? "RESULT: VERIFIED" : "RESULT: FAILED") : "READY FOR INTEGRITY TEST"}
                 </span>
               </div>
-              <span className="text-[10px] text-rose-400/80 font-bold">ok: false</span>
+              <span className="text-[10px] text-slate-400 font-bold">
+                {tampVerdict ? `ok: ${tampVerdict.ok}` : "No mutation executed"}
+              </span>
             </div>
 
             {/* Domain List (Tampered) */}
             <div className="space-y-2 text-xs">
-              <div
-                className={`p-2.5 rounded border flex items-center justify-between ${
-                  tampVerdict?.checks?.binding?.status === "fail"
-                    ? "bg-rose-950/50 border-rose-800 text-rose-200"
-                    : "bg-slate-900/60 border-slate-800/80 text-slate-300"
-                }`}
-              >
-                <span className="font-semibold">Binding</span>
-                {tampVerdict?.checks?.binding?.status === "fail" ? (
-                  <span className="text-rose-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                    <XIcon className="w-3.5 h-3.5" />
-                    FAIL
-                  </span>
-                ) : (
-                  <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                    <CheckIcon className="w-3.5 h-3.5" />
-                    PASS
-                  </span>
-                )}
-              </div>
-
-              <div
-                className={`p-2.5 rounded border flex items-center justify-between ${
-                  tampVerdict?.checks?.signature?.status === "fail"
-                    ? "bg-rose-950/50 border-rose-800 text-rose-200"
-                    : "bg-slate-900/60 border-slate-800/80 text-slate-300"
-                }`}
-              >
-                <span className="font-semibold">Signature</span>
-                {tampVerdict?.checks?.signature?.status === "fail" ? (
-                  <span className="text-rose-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                    <XIcon className="w-3.5 h-3.5" />
-                    FAIL
-                  </span>
-                ) : (
-                  <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                    <CheckIcon className="w-3.5 h-3.5" />
-                    PASS
-                  </span>
-                )}
-              </div>
-
-              <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
-                <span className="text-slate-300 font-semibold">Inclusion</span>
-                <span className="text-emerald-400 font-bold inline-flex items-center gap-1 text-[11px]">
-                  <CheckIcon className="w-3.5 h-3.5" />
-                  PASS
-                </span>
-              </div>
-
-              <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
-                <span className="text-slate-300 font-semibold">Attestation</span>
-                <span className="text-amber-400 font-bold text-[11px]">~ SIMULATED</span>
-              </div>
+              {(["binding", "signature", "inclusion", "attestation"] as const).map((domain) => (
+                <div key={domain} className="p-2.5 rounded bg-slate-900/60 border border-slate-800/80 flex items-center justify-between">
+                  <span className="text-slate-300 font-semibold capitalize">{domain}</span>
+                  {renderCheckStatus(tampVerdict, domain)}
+                </div>
+              ))}
             </div>
 
             <div className="p-3 bg-slate-900/40 rounded border border-rose-950 text-[10px] text-rose-400">
@@ -394,7 +334,7 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
               </code>
             </div>
 
-            <p className="text-xs text-slate-400 font-sans leading-relaxed">
+              <p className="text-xs text-slate-400 font-sans leading-relaxed">
               {mutationDetails.description}
             </p>
           </div>
@@ -434,11 +374,10 @@ export function TamperLabView({ decision, onNavigateTab }: TamperLabViewProps) {
         </div>
 
         <div className="pt-3 border-t border-rose-900/40 text-xs text-slate-400 font-sans leading-relaxed">
-          <strong className="text-slate-200">Mathematical Guarantee:</strong>
+          <strong className="text-slate-200">Integrity finding:</strong>
           &ldquo;The evidence no longer matches the cryptographic binding created when the decision was recorded.&rdquo;
-          Because the signature covers the canonical CBOR encoding of the event core and commitment hash, an adversary
-          cannot tamper with any field without either invalidating the binding hash or breaking the ML-DSA-65 post-quantum
-          signature.
+          Because the signature covers the canonical CBOR encoding of the event core and commitment hash, this test
+          demonstrates that the receipt integrity check detects the mutation.
         </div>
       </div>
     </div>

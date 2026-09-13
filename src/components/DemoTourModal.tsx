@@ -59,7 +59,7 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: "Step 3 · Cryptographic Receipt & Privacy",
-    subtitle: "Salted Commitments & Hybrid Post-Quantum Keys",
+    subtitle: "Salted Commitments & Hybrid Signatures",
     tab: "evidence",
     instruction: "Verify that zero applicant PII or credit scores leak into the receipt wire format.",
     bulletPoints: [
@@ -94,7 +94,7 @@ const TOUR_STEPS: TourStep[] = [
       "Executes real verifyEvidence() on both original and forged copies",
       "Side-by-side comparison reveals immediate cryptographic failure",
     ],
-    actionLabel: "Simulate Attack & Observe Breach",
+    actionLabel: "Simulate Attack & Observe Failure",
   },
   {
     title: "Step 6 · Forensic Detection & Diagnostic",
@@ -105,7 +105,7 @@ const TOUR_STEPS: TourStep[] = [
       "Result: FAILED (Binding FAIL, Signature FAIL)",
       "Reason: 'binding_hash does not match the receipt'",
       "Reason: 'ML-DSA-65 and Ed25519 did not verify'",
-      "Proves beyond doubt that the evidence was altered post-decision",
+      "Demonstrates that the receipt integrity check detects the mutation",
     ],
     actionLabel: "Finish Demo Tour",
   },

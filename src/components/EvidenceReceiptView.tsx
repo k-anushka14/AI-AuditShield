@@ -44,10 +44,7 @@ export function EvidenceReceiptView({ decision, onNavigateTab }: EvidenceReceipt
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  const keyId =
-    (evidence?.record as any)?.signature?.key_id ||
-    (evidence?.keys as any)?.directory?.[0]?.key_id ||
-    "cool-key-dstack-simulated";
+  const keyId = evidence.record.signature.key_id;
 
   const treeSize = evidence?.inclusion?.tree_size ?? 1;
   const leafIndex = evidence?.inclusion?.leaf_index ?? 0;
@@ -154,7 +151,7 @@ export function EvidenceReceiptView({ decision, onNavigateTab }: EvidenceReceipt
                 SIGNATURE ALGORITHM
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">
-                Post-Quantum Hybrid
+                Hybrid Signature
               </span>
             </div>
             <div className="p-2.5 rounded bg-slate-950 border border-slate-800/80 font-mono text-white text-xs font-bold">

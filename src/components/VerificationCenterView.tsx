@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { DecisionRecord } from "@/lib/types";
+import React from "react";
+import { DecisionRecord, VerificationResponse, VerificationStatus } from "@/lib/types";
+import type { Evidence } from "cool-nwc";
 import {
   ShieldCheckIcon,
   ShieldAlertIcon,
@@ -15,18 +16,19 @@ import {
 
 interface VerificationCenterViewProps {
   decision: DecisionRecord | null;
+  verdictData: VerificationResponse | null;
+  isVerifying: boolean;
+  onRunVerify: (evidenceToVerify?: Evidence) => Promise<VerificationResponse | null>;
   onNavigateTab: (tab: "overview" | "investigations" | "evidence" | "verify" | "tamper") => void;
 }
 
 export function VerificationCenterView({
   decision,
+  verdictData,
+  isVerifying,
+  onRunVerify,
   onNavigateTab,
 }: VerificationCenterViewProps) {
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verdictData, setVerdictData] = useState<any | null>(null);
-  const [hasVerified, setHasVerified] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
   if (!decision) {
     return (
       <div className="p-12 text-center text-slate-500 font-mono">
@@ -41,35 +43,7 @@ export function VerificationCenterView({
     );
   }
 
-  const handleVerify = async () => {
-    setIsVerifying(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetch("/api/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          evidence: decision.evidence,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.details || err.error || "Failed to verify evidence");
-      }
-
-      const data = await res.json();
-      setVerdictData(data);
-      setHasVerified(true);
-    } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || String(err));
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const getDomainStatusBadge = (status?: string) => {
+  const getDomainStatusBadge = (status?: VerificationStatus) => {
     if (isVerifying) {
       return (
         <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-sky-950/80 text-sky-400 border border-sky-800 animate-pulse">
@@ -113,6 +87,7 @@ export function VerificationCenterView({
   };
 
   const checks = verdictData?.checks;
+  const hasVerified = verdictData !== null;
   const isOk = verdictData?.ok;
 
   return (
@@ -167,7 +142,7 @@ export function VerificationCenterView({
           </div>
 
           <button
-            onClick={handleVerify}
+            onClick={() => onRunVerify(decision.evidence)}
             disabled={isVerifying}
             className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50"
           >
@@ -175,12 +150,6 @@ export function VerificationCenterView({
             <span>{isVerifying ? "Evaluating 7 Domains..." : "Verify Evidence"}</span>
           </button>
         </div>
-
-        {errorMsg && (
-          <div className="p-3 bg-rose-950/50 border border-rose-800 rounded text-rose-300 text-xs">
-            {errorMsg}
-          </div>
-        )}
 
         {/* Big Overall Result Banner */}
         {hasVerified && (
@@ -221,7 +190,7 @@ export function VerificationCenterView({
 
             <span className="text-xs text-slate-400 hidden sm:inline-block font-sans">
               {isOk
-                ? "All active cryptographic proofs & dual post-quantum signatures validated."
+                ? "All active cryptographic proofs and hybrid ML-DSA-65 + Ed25519 signatures validated."
                 : "Cryptographic failure detected. The evidence was corrupted or altered."}
             </span>
           </div>

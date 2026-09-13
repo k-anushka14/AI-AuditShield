@@ -1,3 +1,5 @@
+import type { Evidence } from "cool-nwc";
+
 export interface ApplicantInput {
   applicationId: string;
   applicantName?: string;
@@ -35,8 +37,25 @@ export interface DecisionRecord {
   executionId: string;
   digest: string;
   caseInfo: CaseInformation;
-  evidence: any;
+  evidence: Evidence;
   createdAt: string;
+}
+
+export type VerificationStatus = "pass" | "fail" | "simulated" | "absent" | "mock";
+
+export interface VerificationCheck {
+  status: VerificationStatus;
+  detail?: string;
+}
+
+export interface VerificationResponse {
+  success: boolean;
+  ok: boolean;
+  subject?: string;
+  checks: Record<string, VerificationCheck>;
+  reasons: string[];
+  formattedVerdict: string;
+  verdict: unknown;
 }
 
 export interface TamperRequest {
@@ -50,10 +69,11 @@ export interface TamperResponse {
   mutationType: string;
   mutationDetails: {
     targetField: string;
-    originalValue: any;
-    tamperedValue: any;
+    originalValue: string | null;
+    tamperedValue: string | null;
+    description: string;
   };
-  originalVerdict: any;
-  tamperedVerdict: any;
-  tamperedEvidence: any;
+  originalVerdict: VerificationResponse;
+  tamperedVerdict: VerificationResponse;
+  tamperedEvidence: Evidence;
 }

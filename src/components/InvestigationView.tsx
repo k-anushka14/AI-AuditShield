@@ -72,8 +72,8 @@ export function InvestigationView({ decision, onNavigateTab }: InvestigationView
     {
       time: fmt(42),
       stage: "COOL EVIDENCE CAPTURE",
-      title: "Salted Commitment & Post-Quantum Signatures",
-      desc: `Payloads committed as salted SHA-256 multihash (${digest.slice(0, 24)}...). Hybrid ML-DSA-65 + Ed25519 signature generated.`,
+      title: "Salted SHA-256 Commitment & Hybrid Signatures",
+      desc: `Payloads committed as salted SHA-256 multihash (${digest.slice(0, 24)}...). ML-DSA-65 post-quantum and Ed25519 classical signatures generated.`,
       icon: ShieldCheckIcon,
       badge: "Crypto Sealing",
     },
@@ -87,9 +87,9 @@ export function InvestigationView({ decision, onNavigateTab }: InvestigationView
     },
     {
       time: fmt(85),
-      stage: "EVIDENCE VERIFIED",
-      title: "7-Domain Cryptographic Verdict: VERIFIED",
-      desc: "Offline verification completed: Binding PASS, Signature PASS, Inclusion PASS, Attestation SIMULATED.",
+      stage: "VERIFICATION AVAILABLE",
+      title: "Run the CooL verifier",
+      desc: "The receipt can be checked offline in Verification Center. Results appear after the real verifier runs.",
       icon: ShieldCheckIcon,
       badge: "Verified",
     },

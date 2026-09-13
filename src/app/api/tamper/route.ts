@@ -114,7 +114,7 @@ export async function POST(request: Request) {
           tamperedValue = forged.digest;
         }
         mutationDescription =
-          "Flipped last character of metadata_hash commitment. Violates cryptographic binding and invalidates post-quantum hybrid signature.";
+          "Flipped last character of metadata_hash commitment. Violates cryptographic binding and invalidates the hybrid signature.";
         break;
       }
     }

@@ -75,7 +75,7 @@ export function DashboardView({
           <p className="text-slate-400 text-sm md:text-base leading-relaxed">
             When an automated AI credit decision is disputed or audited, reconstruct what happened
             and prove that the model execution evidence has not been altered — verified offline against
-            post-quantum commitments without leaking sensitive borrower data.
+            salted SHA-256 commitments without exposing plaintext inputs in the CooL receipt.
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -114,7 +114,7 @@ export function DashboardView({
               { num: "03", label: "Evidence", desc: "Inspect Salted Hashes" },
               { num: "04", label: "Verify", desc: "7 Domains Offline" },
               { num: "05", label: "Tamper Lab", desc: "Simulate Attack" },
-              { num: "06", label: "Detect Breach", desc: "Forensic Failure" },
+              { num: "06", label: "Detect Evidence Tampering", desc: "Integrity Failure" },
             ].map((step, idx) => (
               <div
                 key={idx}
@@ -145,8 +145,8 @@ export function DashboardView({
             <span>VERIFICATION STATUS</span>
             <ShieldCheckIcon className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400 mt-2">100% PASS</div>
-          <div className="text-[11px] text-slate-500 mt-1">Clean records verify offline</div>
+          <div className="text-2xl font-bold text-slate-200 mt-2">Verification available</div>
+          <div className="text-[11px] text-slate-500 mt-1">Run the CooL verifier for a live result</div>
         </div>
 
         <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800">
@@ -154,8 +154,8 @@ export function DashboardView({
             <span>CRYPTOGRAPHIC SUITE</span>
             <LockIcon className="w-4 h-4 text-sky-400" />
           </div>
-          <div className="text-sm font-bold text-slate-200 mt-2">ML-DSA-65 + Ed25519</div>
-          <div className="text-[11px] text-slate-500 mt-1">Dual post-quantum hybrid</div>
+            <div className="text-sm font-bold text-slate-200 mt-2">ML-DSA-65 + Ed25519</div>
+            <div className="text-[11px] text-slate-500 mt-1">Hybrid: post-quantum + classical</div>
         </div>
 
         <div className="p-4 rounded-lg bg-slate-950/80 border border-slate-800">
@@ -261,7 +261,7 @@ export function DashboardView({
                     <span className="text-slate-500">Evidence:</span>
                     <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
                       <CheckIcon className="w-3 h-3 text-emerald-400" />
-                      VERIFIED RECEIPT
+                      VERIFICATION AVAILABLE
                     </span>
                   </div>
 

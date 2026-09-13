@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { DecisionRecord } from "@/lib/types";
+import { DecisionRecord, TamperResponse, VerificationResponse } from "@/lib/types";
+import type { Evidence } from "cool-nwc";
 import { Header, NavTab } from "@/components/Header";
 import { DashboardView } from "@/components/DashboardView";
 import { InvestigationView } from "@/components/InvestigationView";
@@ -18,8 +19,8 @@ export default function Home() {
   const [isTourOpen, setIsTourOpen] = useState(false);
 
   // Shared verification & tampering state across tabs and demo tour
-  const [sharedVerdict, setSharedVerdict] = useState<any | null>(null);
-  const [sharedTamperResult, setSharedTamperResult] = useState<any | null>(null);
+  const [sharedVerdict, setSharedVerdict] = useState<VerificationResponse | null>(null);
+  const [sharedTamperResult, setSharedTamperResult] = useState<TamperResponse | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isTampering, setIsTampering] = useState(false);
 
@@ -55,7 +56,7 @@ export default function Home() {
   };
 
   // Shared execution of verify
-  const handleRunVerify = async (evidenceToVerify?: any) => {
+  const handleRunVerify = async (evidenceToVerify?: Evidence) => {
     const ev = evidenceToVerify || selectedDecision?.evidence;
     if (!ev) return null;
     setIsVerifying(true);
@@ -79,7 +80,9 @@ export default function Home() {
   };
 
   // Shared execution of tamper
-  const handleRunTamper = async (mutationType = "metadata_hash") => {
+  const handleRunTamper = async (
+    mutationType: "metadata_hash" | "corrupt_signature" | "signature_key" = "metadata_hash"
+  ) => {
     if (!selectedDecision) return null;
     setIsTampering(true);
     try {
